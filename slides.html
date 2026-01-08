@@ -138,11 +138,14 @@
     <div class="slide" id="about">
         <h2>About Rockie Yang</h2>
         <div class="profile">
-            <div class="profile-icon">R</div>
+            <div class="profile-icon">
+                <img 
+                style="width: 100%; height: 100%; border-radius: 50%;" alt="RY"
+                src="https://lh3.googleusercontent.com/a/ACg8ocItlLm4vCzB5PJczDgpilUO7CvUi1h6j0YGi1AAH9py5MRjSu4=s576-c-no"
+                /></div>
             <div class="profile-info">
                 <p style="margin-top:20px"><strong>Build Data/ML platform for clients</strong></p>
-                <p style="margin-top: 50px; margin-bottom:15px">All stack engineer</p>
-                <p style="margin-bottom:15px">Love to build data tools</p>
+                <p style="margin-bottom:15px">Love to build my own tools ground up</p>
                 <p><a href="https://awheelmaker.com">awheelmaker.com</a> <span style="color:#888">- Reinventing wheels</span></p>
                 <p style="margin-top:20px"><strong>Currently building:</strong></p>
                 <p><a href="https://objectexplorer.com">ObjectExplorer.com</a> - Explore Objects across multi cloud and local filesystem</p>
@@ -150,7 +153,7 @@
                     <span class="tag">Data Engineering</span>
                     <span class="tag">MLOps</span>
                     <span class="tag">Love Learning Languages</span>
-                    <span class="tag">Learning Drums now</span>
+                    <span class="tag"><a href="https://drum.awheelmaker.com/">Learning Drums</a> now</span>
                 </div>
                 <div style="margin-top:60px">
                     <span class="tag"><a href="https://www.linkedin.com/in/rockieyang/" style="display:inline-flex;align-items:center;gap:8px"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>Rockie Yang</a></span>
@@ -1290,7 +1293,7 @@ Row-major:    [█...█...█...█...] ← mostly wasted
                 <h3>Key Takeaways</h3>
                 <ul>
                     <li>MinGBM achieves comparable accuracy</li>
-                    <li>LightGBM is 3x faster</li>
+                    <li>LightGBM is 1.5x faster</li>
                     <li><strong>MinGBM:</strong> educational, transparent</li>
                     <li><strong>LightGBM:</strong> production, optimized</li>
                 </ul>
@@ -1439,6 +1442,39 @@ Row-major:    [█...█...█...█...] ← mostly wasted
 
         // Handle browser back/forward with hash
         window.addEventListener('hashchange', goToSlideByHash);
+
+        // WebSocket sync for presenter mode
+        const isFollower = window.location.search.includes('follow');
+        let ws = null;
+
+        const connectWS = () => {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+            ws.onopen = () => console.log('WS connected');
+            ws.onclose = () => setTimeout(connectWS, 1000);
+            ws.onmessage = (e) => {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'slide' && isFollower) {
+                    // Follower shows next slide (one ahead as preview)
+                    showSlide(msg.index + 1, true);
+                }
+            };
+        };
+
+        // Connect to WS if available (server mode)
+        if (window.location.port) {
+            connectWS();
+        }
+
+        // Wrap showSlide to broadcast changes
+        const originalShowSlide = showSlide;
+        showSlide = (n, updateHash = true) => {
+            originalShowSlide(n, updateHash);
+            if (ws && ws.readyState === 1 && !isFollower) {
+                ws.send(JSON.stringify({ type: 'slide', index: currentSlide }));
+            }
+        };
 
         // Initialize from hash or first slide
         goToSlideByHash();

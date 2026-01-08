@@ -10,6 +10,7 @@
 #include <time.h>
 
 #define MIN_SAMPLES_LEAF 20
+#define EFB_MIN_FEATURES 10  // Minimum features to enable EFB
 
 // Quickselect partition for GOSS
 static uint32_t partition_by_gradient(float *gradients, uint32_t *indices, uint32_t left, uint32_t right) {
@@ -196,6 +197,324 @@ void create_bin_mappers(TrainContext *ctx) {
            direct_encoded, bit2_encoded, bit4_encoded, binned_encoded);
 }
 
+// ============================================================================
+// EFB: Exclusive Feature Bundling
+// ============================================================================
+
+// Count non-zero values for a feature (sparse detection)
+static uint32_t count_nonzero(uint8_t *bin_col, uint32_t n_samples) {
+    uint32_t count = 0;
+    for (uint32_t i = 0; i < n_samples; i++) {
+        if (bin_col[i] != 0) count++;
+    }
+    return count;
+}
+
+// Count conflicts between two features (both non-zero at same sample)
+static uint32_t count_conflicts(uint8_t *bin_col_a, uint8_t *bin_col_b, uint32_t n_samples) {
+    uint32_t conflicts = 0;
+    for (uint32_t i = 0; i < n_samples; i++) {
+        if (bin_col_a[i] != 0 && bin_col_b[i] != 0) {
+            conflicts++;
+        }
+    }
+    return conflicts;
+}
+
+// Greedy bundling algorithm
+void init_efb(TrainContext *ctx) {
+    BinnedDatasetHeader *binned = (BinnedDatasetHeader*)ctx->binned_dataset;
+    EFBContext *efb = &ctx->efb;
+
+    efb->enabled = 0;
+    efb->bundles = NULL;
+    efb->n_bundles = 0;
+    efb->feature_to_bundle = NULL;
+    efb->feature_to_offset = NULL;
+    efb->bundled_bins = NULL;
+
+    // Skip EFB for small feature counts
+    if (ctx->n_features < EFB_MIN_FEATURES) {
+        printf("EFB disabled (< %d features)\n", EFB_MIN_FEATURES);
+        return;
+    }
+
+    uint32_t n_features = ctx->n_features;
+    uint32_t n_samples = ctx->n_samples;
+    uint32_t max_conflicts = (uint32_t)(EFB_CONFLICT_RATIO * n_samples);
+
+    // Calculate sparsity for each feature
+    uint32_t *nonzero_counts = malloc(n_features * sizeof(uint32_t));
+    uint32_t sparse_count = 0;
+
+    for (uint32_t f = 0; f < n_features; f++) {
+        uint8_t *bin_col = binned->bin_columns[f].ptr;
+        nonzero_counts[f] = count_nonzero(bin_col, n_samples);
+        if (nonzero_counts[f] < n_samples * 0.5) {
+            sparse_count++;
+        }
+    }
+
+    // Skip if not enough sparse features
+    if (sparse_count < 5) {
+        printf("EFB disabled (only %u sparse features)\n", sparse_count);
+        free(nonzero_counts);
+        return;
+    }
+
+    // Allocate mapping arrays
+    efb->feature_to_bundle = malloc(n_features * sizeof(uint32_t));
+    efb->feature_to_offset = malloc(n_features * sizeof(uint32_t));
+
+    for (uint32_t f = 0; f < n_features; f++) {
+        efb->feature_to_bundle[f] = UINT32_MAX;  // Not bundled yet
+    }
+
+    // Greedy bundling: try to add each feature to existing bundle or create new one
+    efb->bundles = malloc(n_features * sizeof(FeatureBundle));
+    efb->n_bundles = 0;
+
+    // Sort features by sparsity (sparser features first for better bundling)
+    uint32_t *sorted_features = malloc(n_features * sizeof(uint32_t));
+    for (uint32_t f = 0; f < n_features; f++) {
+        sorted_features[f] = f;
+    }
+
+    // Simple insertion sort by nonzero count (ascending)
+    for (uint32_t i = 1; i < n_features; i++) {
+        uint32_t key = sorted_features[i];
+        int32_t j = i - 1;
+        while (j >= 0 && nonzero_counts[sorted_features[j]] > nonzero_counts[key]) {
+            sorted_features[j + 1] = sorted_features[j];
+            j--;
+        }
+        sorted_features[j + 1] = key;
+    }
+
+    for (uint32_t i = 0; i < n_features; i++) {
+        uint32_t f = sorted_features[i];
+        uint8_t *bin_col_f = binned->bin_columns[f].ptr;
+        uint32_t f_bins = ctx->bin_mappers[f].n_bins;
+
+        // Try to find existing bundle with low conflict
+        int32_t best_bundle = -1;
+        uint32_t min_conflict = UINT32_MAX;
+
+        for (uint32_t b = 0; b < efb->n_bundles; b++) {
+            FeatureBundle *bundle = &efb->bundles[b];
+
+            // Skip if bundle is full or would exceed MAX_BINS
+            if (bundle->n_features >= MAX_BUNDLE_SIZE) continue;
+            if (bundle->total_bins + f_bins > MAX_BINS) continue;
+
+            // Calculate total conflicts with all features in bundle
+            uint32_t total_conflicts = 0;
+            for (uint32_t j = 0; j < bundle->n_features; j++) {
+                uint32_t other_f = bundle->feature_indices[j];
+                uint8_t *bin_col_other = binned->bin_columns[other_f].ptr;
+                total_conflicts += count_conflicts(bin_col_f, bin_col_other, n_samples);
+                if (total_conflicts > max_conflicts) break;
+            }
+
+            if (total_conflicts <= max_conflicts && total_conflicts < min_conflict) {
+                min_conflict = total_conflicts;
+                best_bundle = b;
+            }
+        }
+
+        if (best_bundle >= 0) {
+            // Add to existing bundle
+            FeatureBundle *bundle = &efb->bundles[best_bundle];
+            uint32_t idx = bundle->n_features;
+            bundle->feature_indices[idx] = f;
+            bundle->bin_offsets[idx] = bundle->total_bins;
+            bundle->n_features++;
+            bundle->total_bins += f_bins;
+
+            efb->feature_to_bundle[f] = best_bundle;
+            efb->feature_to_offset[f] = bundle->bin_offsets[idx];
+        } else {
+            // Create new bundle
+            uint32_t b = efb->n_bundles;
+            FeatureBundle *bundle = &efb->bundles[b];
+            bundle->feature_indices[0] = f;
+            bundle->bin_offsets[0] = 0;
+            bundle->n_features = 1;
+            bundle->total_bins = f_bins;
+
+            efb->feature_to_bundle[f] = b;
+            efb->feature_to_offset[f] = 0;
+            efb->n_bundles++;
+        }
+    }
+
+    free(sorted_features);
+    free(nonzero_counts);
+
+    // Count multi-feature bundles
+    uint32_t multi_bundles = 0;
+    for (uint32_t b = 0; b < efb->n_bundles; b++) {
+        if (efb->bundles[b].n_features > 1) {
+            multi_bundles++;
+        }
+    }
+
+    // Only enable if we actually bundled something
+    if (multi_bundles == 0) {
+        printf("EFB disabled (no features bundled)\n");
+        free(efb->bundles);
+        free(efb->feature_to_bundle);
+        free(efb->feature_to_offset);
+        efb->bundles = NULL;
+        efb->feature_to_bundle = NULL;
+        efb->feature_to_offset = NULL;
+        efb->n_bundles = 0;
+        return;
+    }
+
+    // Create merged bin values for each bundle
+    efb->bundled_bins = malloc(efb->n_bundles * n_samples);
+
+    for (uint32_t b = 0; b < efb->n_bundles; b++) {
+        FeatureBundle *bundle = &efb->bundles[b];
+        uint8_t *bundle_bins = efb->bundled_bins + b * n_samples;
+
+        // Initialize to zero
+        memset(bundle_bins, 0, n_samples);
+
+        // Merge features: bin_value = original_bin + offset
+        for (uint32_t j = 0; j < bundle->n_features; j++) {
+            uint32_t f = bundle->feature_indices[j];
+            uint32_t offset = bundle->bin_offsets[j];
+            uint8_t *bin_col = binned->bin_columns[f].ptr;
+
+            for (uint32_t i = 0; i < n_samples; i++) {
+                if (bin_col[i] != 0) {
+                    bundle_bins[i] = (uint8_t)(bin_col[i] + offset);
+                }
+            }
+        }
+    }
+
+    efb->enabled = 1;
+    printf("EFB enabled: %u features -> %u bundles (%u multi-feature bundles)\n",
+           n_features, efb->n_bundles, multi_bundles);
+}
+
+void free_efb(TrainContext *ctx) {
+    EFBContext *efb = &ctx->efb;
+    if (efb->bundles) free(efb->bundles);
+    if (efb->feature_to_bundle) free(efb->feature_to_bundle);
+    if (efb->feature_to_offset) free(efb->feature_to_offset);
+    if (efb->bundled_bins) free(efb->bundled_bins);
+    efb->bundles = NULL;
+    efb->feature_to_bundle = NULL;
+    efb->feature_to_offset = NULL;
+    efb->bundled_bins = NULL;
+    efb->n_bundles = 0;
+    efb->enabled = 0;
+}
+
+// Build histogram for a bundle
+static void build_histogram_bundle(TrainContext *ctx, uint32_t bundle_idx,
+                                   uint32_t *samples, uint32_t n_samples, Histogram *hist) {
+    EFBContext *efb = &ctx->efb;
+    uint8_t *bundle_bins = efb->bundled_bins + bundle_idx * ctx->n_samples;
+
+    memset(hist, 0, sizeof(Histogram));
+
+    float *gradients = ctx->gradients;
+    float *hessians = ctx->hessians;
+    float *sample_weights = ctx->sample_weights;
+
+    for (uint32_t i = 0; i < n_samples; i++) {
+        uint32_t idx = samples[i];
+        uint8_t bin = bundle_bins[idx];
+        float weight = sample_weights[idx];
+
+        hist->sum_gradients[bin] += gradients[idx] * weight;
+        hist->sum_hessians[bin] += hessians[idx] * weight;
+        hist->counts[bin]++;
+    }
+}
+
+// Find best split for a bundle
+static void find_best_split_for_bundle(TrainContext *ctx, uint32_t bundle_idx,
+                                       Histogram *hist, SplitInfo *best_split) {
+    EFBContext *efb = &ctx->efb;
+    FeatureBundle *bundle = &efb->bundles[bundle_idx];
+
+    uint32_t total_bins = bundle->total_bins;
+
+    double total_grad = 0;
+    double total_hess = 0;
+
+    for (uint32_t b = 0; b < total_bins; b++) {
+        total_grad += hist->sum_gradients[b];
+        total_hess += hist->sum_hessians[b];
+    }
+
+    if (total_hess < 1e-6) return;
+
+    // For each feature in bundle, try splits
+    for (uint32_t j = 0; j < bundle->n_features; j++) {
+        uint32_t f = bundle->feature_indices[j];
+        uint32_t offset = bundle->bin_offsets[j];
+        BinMapper *mapper = &ctx->bin_mappers[f];
+        uint32_t n_bins = mapper->n_bins;
+
+        double left_grad = 0;
+        double left_hess = 0;
+
+        // Accumulate bins 0..offset-1 (other features' bins before this one)
+        for (uint32_t b = 0; b < offset; b++) {
+            left_grad += hist->sum_gradients[b];
+            left_hess += hist->sum_hessians[b];
+        }
+
+        // Try splits within this feature's bin range
+        for (uint32_t b = 0; b < n_bins - 1; b++) {
+            uint32_t actual_bin = offset + b;
+            left_grad += hist->sum_gradients[actual_bin];
+            left_hess += hist->sum_hessians[actual_bin];
+
+            double right_grad = total_grad - left_grad;
+            double right_hess = total_hess - left_hess;
+
+            if (left_hess < 1e-6 || right_hess < 1e-6) continue;
+
+            double gain = 0.5 * (left_grad * left_grad / left_hess +
+                                 right_grad * right_grad / right_hess -
+                                 total_grad * total_grad / total_hess);
+
+            if (gain > best_split->gain) {
+                best_split->gain = gain;
+                best_split->feature_idx = f;
+                best_split->bin_idx = b;
+
+                if (mapper->encoding_type == ENCODING_DIRECT ||
+                    mapper->encoding_type == ENCODING_BITS_2 ||
+                    mapper->encoding_type == ENCODING_BITS_4) {
+                    if (b < n_bins - 1) {
+                        best_split->threshold = (mapper->unique_values[b] + mapper->unique_values[b + 1]) / 2.0f;
+                    } else {
+                        best_split->threshold = mapper->unique_values[b];
+                    }
+                } else {
+                    best_split->threshold = mapper->bin_upper_bounds[b];
+                }
+
+                best_split->left_weight = -left_grad / left_hess;
+                best_split->right_weight = -right_grad / right_hess;
+            }
+        }
+
+        // Add last bin to left_grad/hess for next feature
+        left_grad += hist->sum_gradients[offset + n_bins - 1];
+        left_hess += hist->sum_hessians[offset + n_bins - 1];
+    }
+}
+
 // Build histogram for a feature
 void build_histogram(TrainContext *ctx, uint32_t feature_idx,
                      uint32_t *samples, uint32_t n_samples, Histogram *hist) {
@@ -285,15 +604,27 @@ static void find_best_split_for_feature(TrainContext *ctx, uint32_t feature_idx,
     }
 }
 
-// Find best split across all features
+// Find best split across all features (or bundles if EFB enabled)
 SplitInfo find_best_split(TrainContext *ctx, uint32_t *samples, uint32_t n_samples) {
     SplitInfo best_split = {0};
     best_split.gain = 0.0;
 
-    for (uint32_t f = 0; f < ctx->n_features; f++) {
-        Histogram hist;
-        build_histogram(ctx, f, samples, n_samples, &hist);
-        find_best_split_for_feature(ctx, f, &hist, &best_split);
+    EFBContext *efb = &ctx->efb;
+
+    if (efb->enabled) {
+        // Use bundled features
+        for (uint32_t b = 0; b < efb->n_bundles; b++) {
+            Histogram hist;
+            build_histogram_bundle(ctx, b, samples, n_samples, &hist);
+            find_best_split_for_bundle(ctx, b, &hist, &best_split);
+        }
+    } else {
+        // Original per-feature search
+        for (uint32_t f = 0; f < ctx->n_features; f++) {
+            Histogram hist;
+            build_histogram(ctx, f, samples, n_samples, &hist);
+            find_best_split_for_feature(ctx, f, &hist, &best_split);
+        }
     }
 
     return best_split;

@@ -54,6 +54,7 @@
 
         const injectStyles = (styleText) => {
             const doc = frame.contentDocument;
+            if (!doc) return;
             let style = doc.getElementById('injected-styles');
             if (!style) {
                 style = doc.createElement('style');
@@ -73,21 +74,12 @@
                 wrapper.style.transform = '';
                 wrapper.style.height = '100vh';
             }
-
-            // Inject small screen styles when scaled down significantly
             if (frame.contentDocument) {
-                if (width < 900) {
-                    injectStyles(smallScreenStyles);
-                } else {
-                    injectStyles('');
-                }
+                injectStyles(width < 900 ? smallScreenStyles : '');
             }
         };
 
-        frame.addEventListener('load', () => {
-            handleResize();
-        });
-
+        frame.addEventListener('load', handleResize);
         window.addEventListener('resize', handleResize);
         handleResize();
     </script>

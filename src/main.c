@@ -78,6 +78,9 @@ int main(int argc, char **argv) {
     create_bin_mappers(&ctx);
     print_color(GREEN, "  Binned dataset (%.2f KB)\n\n", binned_size / 1024.0);
 
+    // Initialize EFB (Exclusive Feature Bundling)
+    init_efb(&ctx);
+
     // Train model
     print_color(YELLOW, "[5/6] ");
     printf("Training GBM...\n");
@@ -90,6 +93,7 @@ int main(int argc, char **argv) {
     evaluate_model(&ctx);
 
     // Cleanup
+    free_efb(&ctx);
     free(ctx.gradients);
     free(ctx.hessians);
     free(ctx.predictions);

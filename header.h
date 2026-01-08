@@ -14,6 +14,8 @@
 #define MAX_BINS 256
 #define MAX_DEPTH 6
 #define MAX_LEAVES 31
+#define MAX_BUNDLE_SIZE 8     // Max features per bundle
+#define EFB_CONFLICT_RATIO 0.05  // Max conflict ratio for bundling
 
 // ANSI Color codes
 #define RESET   "\033[0m"
@@ -111,6 +113,24 @@ typedef struct {
     uint8_t encoding_type;           // Type of encoding used
 } BinMapper;
 
+// EFB: Exclusive Feature Bundle
+typedef struct {
+    uint32_t feature_indices[MAX_BUNDLE_SIZE];  // Original feature indices in this bundle
+    uint32_t bin_offsets[MAX_BUNDLE_SIZE];      // Bin offset for each feature in bundle
+    uint32_t n_features;                         // Number of features in bundle
+    uint32_t total_bins;                         // Total bins in merged histogram
+} FeatureBundle;
+
+// EFB context
+typedef struct {
+    FeatureBundle *bundles;      // Array of bundles
+    uint32_t n_bundles;          // Number of bundles
+    uint32_t *feature_to_bundle; // Map: feature_idx -> bundle_idx
+    uint32_t *feature_to_offset; // Map: feature_idx -> bin_offset within bundle
+    uint8_t *bundled_bins;       // Merged bin values: [bundle_idx][sample_idx]
+    uint8_t enabled;             // Whether EFB is enabled
+} EFBContext;
+
 // Forward declaration
 typedef struct TrainContext TrainContext;
 
@@ -154,6 +174,8 @@ struct TrainContext {
     float goss_alpha;         // Ratio of large gradient samples to keep
     float goss_beta;          // Ratio of small gradient samples to keep
     uint8_t use_goss;         // Whether to use GOSS
+    // EFB context
+    EFBContext efb;
 };
 
 // Split finding
@@ -352,6 +374,10 @@ uint8_t determine_encoding_type(uint32_t cardinality);
 void create_bin_mappers(TrainContext *ctx);
 void train_gbm(TrainContext *ctx, uint32_t n_trees, float learning_rate);
 void evaluate_model(TrainContext *ctx);
+
+// EFB functions
+void init_efb(TrainContext *ctx);
+void free_efb(TrainContext *ctx);
 
 // Utility functions
 void print_color(const char *color, const char *format, ...);

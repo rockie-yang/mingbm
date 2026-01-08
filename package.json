@@ -1,0 +1,25 @@
+{
+  "name": "mingbm",
+  "version": "1.0.0",
+  "description": "A minimal single-threaded GBM implementation in pure C using memory-mapped storage.",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rockie-yang/mingbm.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rockie-yang/mingbm/issues"
+  },
+  "homepage": "https://github.com/rockie-yang/mingbm#readme",
+  "dependencies": {
+    "ws": "^8.19.0"
+  }
+}
