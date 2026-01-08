@@ -1,0 +1,31 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Debug",
+            "type": "shell",
+            "command": "clang",
+            "args": [
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-g",
+                "-O0",
+                "-o",
+                "${workspaceFolder}/build/mingbm_debug",
+                "${workspaceFolder}/src/main.c",
+                "${workspaceFolder}/src/dataset.c",
+                "${workspaceFolder}/src/model.c",
+                "${workspaceFolder}/src/train.c",
+                "${workspaceFolder}/src/utility.c",
+                "-lm"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "detail": "Build mingbm with debug symbols"
+        }
+    ]
+}

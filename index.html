@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal GBM - Understanding LightGBM</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0a; }
+        #frame-wrapper {
+            width: 100%;
+            min-width: 1200px;
+            height: 100vh;
+            transform-origin: top left;
+        }
+        #frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="frame-wrapper">
+        <iframe id="frame" src="slides.html"></iframe>
+    </div>
+    <script>
+        const wrapper = document.getElementById('frame-wrapper');
+        const frame = document.getElementById('frame');
+
+        // Pass hash to iframe
+        frame.src = 'slides.html' + window.location.hash;
+
+        // Sync hash changes from parent to iframe
+        window.addEventListener('hashchange', () => {
+            frame.contentWindow.location.hash = window.location.hash;
+        });
+
+        // Sync hash changes from iframe to parent via postMessage
+        window.addEventListener('message', (e) => {
+            if (e.data && e.data.type === 'hashchange') {
+                history.replaceState(null, null, e.data.hash);
+            }
+        });
+
+        // Responsive styles to inject into iframe
+        const smallScreenStyles = `
+            .two-column { gap: 5px !important; }
+            .three-column { gap: 5px !important; }
+            .slide { padding: 30px 40px !important; }
+            pre { padding: 15px !important; }
+            h2 { margin-bottom: 20px !important; }
+        `;
+
+        const injectStyles = (styleText) => {
+            const doc = frame.contentDocument;
+            if (!doc) return;
+            let style = doc.getElementById('injected-styles');
+            if (!style) {
+                style = doc.createElement('style');
+                style.id = 'injected-styles';
+                doc.head.appendChild(style);
+            }
+            style.textContent = styleText;
+        };
+
+        const handleResize = () => {
+            const width = window.innerWidth;
+            if (width < 1200) {
+                const scale = width / 1200;
+                wrapper.style.transform = `scale(${scale})`;
+                wrapper.style.height = `${100 / scale}vh`;
+            } else {
+                wrapper.style.transform = '';
+                wrapper.style.height = '100vh';
+            }
+            if (frame.contentDocument) {
+                injectStyles(width < 900 ? smallScreenStyles : '');
+            }
+        };
+
+        frame.addEventListener('load', handleResize);
+        window.addEventListener('resize', handleResize);
+        handleResize();
+    </script>
+</body>
+</html>

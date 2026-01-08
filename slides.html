@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Educational Minimal GBM </title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 16px;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+
+        .slide {
+            display: none !important;
+            width: 100vw;
+            height: 100vh;
+            padding: 40px 60px;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .slide.active { display: flex !important; flex-direction: column; }
+
+        h1 { font-size: 2.8em; font-weight: 600; color: #fff; margin-bottom: 30px; line-height: 1.2; }
+        h2 { font-size: 2.2em; font-weight: 600; color: #4fc3f7; margin-bottom: 20px; }
+        h3 { font-size: 1.4em; font-weight: 500; color: #81c784; margin: 25px 0 15px; }
+        p, li { font-size: 1.3em; line-height: 1.7; color: #ccc; }
+        ul { margin-left: 40px; margin-bottom: 20px; }
+        li { margin-bottom: 12px; }
+
+        code {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            background: #1a1a2e;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #f8f8f2;
+        }
+
+        pre {
+            background: #1a1a2e;
+            padding: 25px;
+            /* border-radius: 12px; */
+            overflow-x: auto;
+            margin: 10px 0;
+            font-size: 18px;
+            border-left: 4px solid #4fc3f7;
+        }
+
+        pre code { background: none; padding: 0; font-size: 1.3em; line-height: 1.6; }
+
+        .highlight { color: #f8f8f2; }
+        .keyword { color: #ff79c6; }
+        .type { color: #8be9fd; }
+        .string { color: #f1fa8c; }
+        .comment { color: #6272a4; }
+        .number { color: #bd93f9; }
+        .function { color: #50fa7b; }
+
+        .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; }
+        .three-column { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; flex: 1; }
+
+        .center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+
+        .title-slide h1 { font-size: 3.2em; margin-bottom: 20px; }
+        .title-slide .subtitle { font-size: 1.5em; color: #888; margin-bottom: 60px; }
+        .title-slide .author { font-size: 1.2em; color: #4fc3f7; }
+
+        .progress { position: fixed; bottom: 0; left: 0; height: 4px; background: #4fc3f7; transition: width 0.3s; }
+        .slide-number { position: fixed; bottom: 20px; right: 30px; font-size: 0.9em; color: #666; }
+        .nav-hint { position: fixed; bottom: 20px; left: 30px; font-size: 0.8em; color: #444; }
+
+        .diagram { background: #1a1a2e; padding: 30px; border-radius: 12px; text-align: center; margin: 20px 0; }
+        .diagram pre { background: none; border: none; padding: 0; text-align: left; display: inline-block; }
+
+        .box { display: inline-block; padding: 15px 25px; background: #2d2d44; border-radius: 8px; margin: 10px; border: 2px solid #4fc3f7; }
+        .box.green { border-color: #81c784; }
+        .box.yellow { border-color: #fff176; }
+        .box.red { border-color: #ef5350; }
+        .box.purple { border-color: #ba68c8; }
+
+        .arrow { color: #4fc3f7; font-size: 2em; margin: 0 15px; }
+
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .comparison-table th, .comparison-table td { padding: 15px 20px; text-align: left; border-bottom: 1px solid #333; }
+        .comparison-table th { background: #1a1a2e; color: #4fc3f7; font-weight: 600; }
+        .comparison-table tr:hover { background: #1a1a2e; }
+
+        .metric { display: inline-block; padding: 20px 20px; background: #1a1a2e; border-radius: 12px; margin: 10px; text-align: center; }
+        .metric .value { font-size: 2.5em; font-weight: 700; color: #4fc3f7; }
+        .metric .label { font-size: 0.9em; color: #888; margin-top: 5px; }
+
+        a { color: #4fc3f7; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .profile { display: flex; align-items: center; gap: 40px; margin-top: 30px; }
+        .profile-icon { width: 120px; height: 120px; background: linear-gradient(135deg, #4fc3f7, #81c784); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 3em; }
+        .profile-info { text-align: left; }
+
+        .tag { display: inline-flex; align-items: center; padding: 8px 16px; background: #2d2d44; border-radius: 20px; font-size: 0.85em; margin: 5px; color: #81c784; vertical-align: middle; }
+
+        .year { color: #888; font-size: 0.8em; }
+
+        /* Visual illustrations */
+        .visual-box { background: #1a1a2e; border-radius: 12px; padding: 20px; margin: 10px 0; }
+        .bar { height: 30px; background: linear-gradient(90deg, #4fc3f7, #81c784); border-radius: 4px; margin: 8px 0; }
+        .bar-label { display: flex; justify-content: space-between; font-size: 0.9em; color: #888; }
+
+        .formula { background: #2d2d44; padding: 15px 25px; border-radius: 8px; font-family: 'SF Mono', monospace; margin: 10px 0; border-left: 3px solid #ba68c8; }
+
+        .icon-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 20px 0; }
+        .icon-item { text-align: center; padding: 20px; background: #1a1a2e; border-radius: 12px; }
+        .icon-item .icon { font-size: 2.5em; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================================
+         SLIDE 1: Title Slide
+         Main presentation title and author
+         ============================================================ -->
+    <div class="slide active title-slide center" id="title">
+        <h1>Minimal GBM</h1>
+        <p class="subtitle">Understanding how LightGBM Works<br>by Implementing A Minimal One</p>
+        <p class="author">Rockie Yang</p>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 2: About Author
+         Introduction to Rockie Yang and his projects
+         ============================================================ -->
+    <div class="slide" id="about">
+        <h2>About Rockie Yang</h2>
+        <div class="profile">
+            <div class="profile-icon">
+                <img 
+                style="width: 100%; height: 100%; border-radius: 50%;" alt="RY"
+                src="https://lh3.googleusercontent.com/a/ACg8ocItlLm4vCzB5PJczDgpilUO7CvUi1h6j0YGi1AAH9py5MRjSu4=s576-c-no"
+                /></div>
+            <div class="profile-info">
+                <p style="margin-top:20px"><strong>Build Data/ML platform for clients</strong></p>
+                <p style="margin-bottom:15px">Love to build my own tools ground up</p>
+                <p><a href="https://awheelmaker.com">awheelmaker.com</a> <span style="color:#888">- Reinventing wheels</span></p>
+                <p style="margin-top:20px"><strong>Currently building:</strong></p>
+                <p><a href="https://objectexplorer.com">ObjectExplorer.com</a> - Explore Objects across multi cloud and local filesystem</p>
+                <div style="margin-top:20px">
+                    <span class="tag">Data Engineering</span>
+                    <span class="tag">MLOps</span>
+                    <span class="tag">Love Learning Languages</span>
+                    <span class="tag"><a href="https://drum.awheelmaker.com/" style="margin-right: 0.5em;">Learning Drums</a> now</span>
+                </div>
+                <div style="margin-top:60px">
+                    <span class="tag"><a href="https://www.linkedin.com/in/rockieyang/" style="display:inline-flex;align-items:center;gap:8px"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>Rockie Yang</a></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 3: Decision Tree
+         Foundation: What is a decision tree and how it works
+         - Explains splitting criteria: Information Gain, Gini, Variance
+         ============================================================ -->
+    <div class="slide" id="decision-tree">
+        <h2>Decision Tree</h2>
+        <div class="two-column">
+            <div>
+                <p>A tree structure that makes decisions by splitting data based on feature values.</p>
+                <h3>Key Concepts</h3>
+                <ul>
+                    <li><strong>Split:</strong> Divide data by feature threshold</li>
+                    <li><strong>Leaf:</strong> Final prediction value</li>
+                    <li><strong>Depth:</strong> Number of splits from root</li>
+                </ul>
+                <h3>Splitting Criteria</h3>
+                <ul>
+                    <li><strong>Information Gain:</strong> Maximize entropy reduction - measures "surprise" in data</li>
+                    <li><strong>Gini Impurity:</strong> Probability of misclassification - simpler to compute</li>
+                    <li><strong>Variance Reduction:</strong> For regression - minimize MSE</li>
+                </ul>
+            </div>
+            <div class="diagram">
+                <!-- Visual: Decision tree structure -->
+                <pre style="color:#ccc;font-size:1.1em">
+        ┌─────────────┐
+        │  Age > 30?  │
+        └──────┬──────┘
+          Yes  │  No
+        ┌──────┴───────┐
+        │              │
+   ┌────▼─────┐   ┌────▼────┐
+   │Income>50K│   │ Reject  │
+   └────┬─────┘   └─────────┘
+    Yes │ No
+   ┌────┴────┐
+   │         │
+┌──▼────┐ ┌──▼───┐
+│Approve│ │Review│
+└───────┘ └──────┘
+                </pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 4: Random Forest
+         Foundation: Ensemble methods and bagging
+         Year: 2001 (Leo Breiman)
+         ============================================================ -->
+    <div class="slide" id="random-forest">
+        <h2>Random Forest <span class="year">(2001)</span></h2>
+        <div class="two-column">
+            <div>
+                <h3>Ensemble Learning</h3>
+                <p>Combine multiple models to improve prediction accuracy.</p>
+                <h3>Random Forest - Leo Breiman</h3>
+                <ul>
+                    <li><strong>Bagging:</strong> Bootstrap Aggregating - train on random samples with replacement</li>
+                    <li><strong>Random features:</strong> Each split considers random subset of features</li>
+                    <li><strong>Aggregation:</strong> Average (regression) or vote (classification)</li>
+                </ul>
+                <h3>Limitation</h3>
+                <p style="color:#ef5350">Trees are independent - cannot correct each other's errors</p>
+            </div>
+            <div>
+                <!-- Visual: Bagging illustration -->
+                <div class="diagram">
+                    <p style="color:#888;margin-bottom:15px">Bootstrap Sampling</p>
+                    <pre style="color:#ccc">
+Original: [1,2,3,4,5,6,7,8,9,10]
+           ↓ sample with replacement
+Sample 1: [2,3,3,5,7,7,8,9,9,10]
+Sample 2: [1,1,2,4,4,6,7,8,9,10]
+Sample 3: [1,3,3,5,5,6,8,8,9,10]
+                    </pre>
+                </div>
+                <div class="diagram" style="margin-top:10px">
+                    <div class="box">Tree 1</div>
+                    <div class="box">Tree 2</div>
+                    <div class="box">Tree 3</div>
+                    <br>
+                    <span class="arrow">↓</span><span class="arrow">↓</span><span class="arrow">↓</span>
+                    <br>
+                    <div class="box green">Average / Vote</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 5: XGBoost
+         Foundation: Gradient boosting with regularization
+         Year: 2014 (Tianqi Chen)
+         Explains: regularization, second-order gradients, pre-sorting
+         ============================================================ -->
+    <div class="slide" id="xgboost">
+        <h2>XGBoost <span class="year">(2014)</span></h2>
+        <div class="two-column">
+            <div>
+                <h3>eXtreme Gradient Boosting - Tianqi Chen</h3>
+                <p>Sequential tree building - each tree corrects previous errors.</p>
+                <h3>Key Innovations</h3>
+                <ul>
+                     <!-- Add penalty terms to prevent overfitting -->
+                    <li>Regularization L1 / L2</li>
+                    <li>Second-order gradients Hessian</li>
+                    <li>Sparsity-aware</li>
+                    <li>Weighted quantile sketch</li>
+                </ul>
+            </div>
+            <div>
+                <h3>Why Pre-sorted?</h3>
+                <div class="visual-box">
+                    <p style="color:#888;font-size:0.9em;margin-bottom:10px">To find best split, XGBoost sorts each feature:</p>
+                    <pre style="background:none;border:none;padding:10px"><code style="font-size: 0.95em;">Feature values: [3.2, 1.5, 4.8, 2.1, 0.9]
+Sorted indices: [4.8, 1.5, 3.2, 0.9, 2.1]  <span class="comment">// O(n log n)</span>
+
+<span class="comment">// Then scan to find best threshold</span>
+for each sorted value:
+    compute gain if split here
+    track best split</code></pre>
+                </div>
+                <p style="color:#ef5350;margin-top:15px"><strong>Problem:</strong> Sort every feature × every node × every tree = SLOW</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 6: The Problem - Speed & Memory
+         Why traditional GBM is slow on large datasets
+         ============================================================ -->
+    <div class="slide" id="problem">
+        <h2>The Problem: Speed & Memory</h2>
+        <div class="two-column">
+            <div>
+                <h3>Traditional GBM Issues</h3>
+                <ul>
+                    <li><strong>Pre-sorting:</strong> O(n log n) per feature per split</li>
+                    <li><strong>Memory:</strong> Store sorted indices for ALL features (4 bytes × n × features)</li>
+                    <li><strong>Cache inefficiency:</strong> Random memory access pattern</li>
+                    <li><strong>Slow on large data:</strong> Millions of rows = hours of training</li>
+                </ul>
+                <h3>Real-world Scale</h3>
+                <ul>
+                    <li>Datasets: 10M+ rows, 1000+ features</li>
+                    <li>Training time: hours to days</li>
+                    <li>Memory: 10x+ data size</li>
+                </ul>
+            </div>
+            <div>
+                <!-- Visual: Complexity comparison -->
+                <div class="visual-box">
+                    <p style="color:#4fc3f7;margin-bottom:15px">Pre-sorted Split Finding</p>
+                    <div class="bar-label"><span>Sort</span><span>O(n log n)</span></div>
+                    <div class="bar" style="width:100%;background:#ef5350"></div>
+                    <div class="bar-label"><span>Scan</span><span>O(n)</span></div>
+                    <div class="bar" style="width:30%;background:#fff176"></div>
+                    <p style="color:#888;margin-top:15px;font-size:0.9em">× features × nodes × trees</p>
+                </div>
+                <div style="margin-top:20px">
+                    <div class="metric">
+                        <div class="value">10x</div>
+                        <div class="label">Memory overhead</div>
+                    </div>
+                    <div class="metric">
+                        <div class="value">Hours</div>
+                        <div class="label">Training time</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 7: What is LightGBM
+         Introduction to LightGBM and its design goals
+         Year: 2017 (Microsoft)
+         ============================================================ -->
+    <div class="slide" id="lightgbm">
+        <h2>What is LightGBM? <span class="year">(2016)</span></h2>
+        <div class="two-column">
+            <div>
+                <h3>Light Gradient Boosting Machine</h3>
+                <p>Microsoft's high-performance GBM framework</p>
+                <h3>Design Goals</h3>
+                <ul>
+                    <li>Faster training speed</li>
+                    <li>Lower memory usage</li>
+                    <li>Better accuracy</li>
+                    <li>Support for parallel & GPU</li>
+                    <li>Handle large-scale data</li>
+                </ul>
+                <h3>Result</h3>
+                <p><strong style="color:#81c784">20x faster</strong> than XGBoost on many benchmarks</p>
+            </div>
+            <div>
+                <!-- Visual: Key features -->
+                <div class="icon-grid">
+                    <div class="icon-item">
+                        <div class="icon">📊</div>
+                        <div>Histogram</div>
+                    </div>
+                    <div class="icon-item">
+                        <div class="icon">🌿</div>
+                        <div>Leaf-wise</div>
+                    </div>
+                    <div class="icon-item">
+                        <div class="icon">📉</div>
+                        <div>GOSS</div>
+                    </div>
+                    <div class="icon-item">
+                        <div class="icon">📦</div>
+                        <div>EFB</div>
+                    </div>
+                </div>
+                <div class="visual-box" style="margin-top:20px">
+                    <p style="color:#888;font-size:0.9em">Speed Comparison (1M rows)</p>
+                    <div class="bar-label"><span>XGBoost</span><span>60s</span></div>
+                    <div class="bar" style="width:100%;background:#ef5350"></div>
+                    <div class="bar-label"><span>LightGBM</span><span>5s</span></div>
+                    <div class="bar" style="width:8%;background:#81c784"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 8: LightGBM Key Innovations
+         Summary table of all innovations
+         ============================================================ -->
+    <div class="slide" id="innovations">
+        <h2>LightGBM Key Innovations</h2>
+        <table class="comparison-table">
+            <tr>
+                <th>Innovation</th>
+                <th>Description</th>
+                <th>Benefit</th>
+            </tr>
+            <tr>
+                <td><strong>Histogram-based</strong></td>
+                <td>Bin continuous values into 256 discrete bins <strong>ONCE</strong></td>
+                <td>O(n) vs O(n log n) per split</td>
+            </tr>
+            <tr>
+                <td><strong>Leaf-wise growth</strong></td>
+                <td>Split leaf with max gain (vs level-by-level)</td>
+                <td>Better accuracy, faster convergence</td>
+            </tr>
+            <tr>
+                <td><strong>GOSS</strong></td>
+                <td>Keep large gradients, sample small ones</td>
+                <td>Use ~30% data, similar accuracy</td>
+            </tr>
+            <tr>
+                <td><strong>EFB</strong></td>
+                <td>Bundle mutually exclusive features</td>
+                <td>Reduce effective features</td>
+            </tr>
+            <tr>
+                <td><strong>Cache optimization</strong></td>
+                <td>Contiguous memory access patterns</td>
+                <td>Better CPU utilization</td>
+            </tr>
+        </table>
+        <p style="margin-top:20px;color:#888"><strong>Note:</strong> sklearn's HistGradientBoostingClassifier (2019) uses similar histogram-based approach</p>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 9: Histogram-Based Algorithm
+         Key innovation: binning is done ONCE before training
+         ============================================================ -->
+    <div class="slide" id="histogram">
+        <h2>Histogram-Based Algorithm</h2>
+        <div class="two-column">
+            <div>
+                <h3>Key Insight</h3>
+                <p>Bins are built <strong style="color:#81c784">ONCE</strong> before training, then reused for all trees!</p>
+                <h3>Process</h3>
+                <ol style="margin-left:40px">
+                    <li style="margin:10px 0">Compute bin boundaries</li>
+                    <li style="margin:10px 0">Map each value to bin index</li>
+                    <li style="margin:10px 0">Build histogram - O(n)</li>
+                    <li style="margin:10px 0">Find best split - O(256)</li>
+                </ol>
+                <h3>Complexity</h3>
+                <p>O(n × features) per tree, NOT O(n log n × features × nodes)</p>
+            </div>
+            <div>
+                <!-- Visual: Histogram vs Pre-sorted -->
+                <div class="visual-box">
+                    <p style="color:#ef5350;margin-bottom:10px">❌ Pre-sorted (per split)</p>
+                    <pre style="background:none;border:none;padding:5px"><code>[3.2, 1.5, 4.8, 2.1] → sort → [1.5, 2.1, 3.2, 4.8]
+<span class="comment">// O(n log n) EVERY split</span></code></pre>
+                </div>
+                <div class="visual-box" style="margin-top:15px">
+                    <p style="color:#81c784;margin-bottom:10px">✓ Histogram (once)</p>
+                    <pre style="background:none;border:none;padding:5px"><code><span class="comment">// Build bins ONCE before training</span>
+bins: [0-2] [2-4] [4-6]
+data: [  1 ] [ 2 ] [ 1 ]  <span class="comment">// uint8 indices</span>
+
+<span class="comment">// Per node: just aggregate</span>
+histogram[bin] += gradient  <span class="comment">// O(n)</span></code></pre>
+                </div>
+            </div>
+            <p style="color:#888"><strong>Note:</strong> <a href="https://xgboost.readthedocs.io/en/stable/treemethod.html">XGBoost also support histgram based split now</a></p>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 10: Leaf-wise vs Level-wise Growth
+         Visual comparison of tree growth strategies
+         ============================================================ -->
+    <div class="slide" id="leaf-wise">
+        <h2>Leaf-wise vs Level-wise Growth</h2>
+        <div class="two-column">
+            <div>
+                <h3>Level-wise (XGBoost default)</h3>
+                <p>Split all nodes at current depth before going deeper.</p>
+                <div class="diagram">
+                    <pre style="color:#888">
+Level 0:      ┌───[Root]───┐
+              │            │
+Level 1:   [Node]       [Node]
+            │  │          │  │
+Level 2:   [N][N]        [N][N]
+                    </pre>
+                </div>
+                <p style="color:#888;font-size:0.9em">✓ Balanced tree</p>
+                <p style="color:#ef5350;font-size:0.9em">✗ May split low-gain nodes</p>
+            </div>
+            <div>
+                <h3>Leaf-wise (LightGBM)</h3>
+                <p>Always split the leaf with <strong>highest gain</strong>.</p>
+                <div class="diagram">
+                    <pre style="color:#81c784">
+        [Root]
+           │
+      [Best Gain] ← split this first!
+           │
+      [Best Gain]
+         │   │
+        [N][Best] ← then this
+                    </pre>
+                </div>
+                <p style="color:#81c784;font-size:0.9em">✓ Lower loss, faster convergence</p>
+                <p style="color:#888;font-size:0.9em">✗ Needs max_depth to prevent overfitting</p>
+            </div>
+        </div>
+        <p style="margin-top:20px;color:#888"><strong>Note:</strong> <a href="https://xgboost.readthedocs.io/en/latest/parameter.html">XGBoost also support leaf wise grow by choosing gross_policy=lossguide when using hist</a></p>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 11: GOSS - Gradient-based One-Side Sampling
+         Dedicated slide for GOSS with visual illustration
+         ============================================================ -->
+    <div class="slide" id="goss">
+        <h2>GOSS: Gradient-based One-Side Sampling</h2>
+        <div class="two-column">
+            <div>
+                <h3>Key Insight</h3>
+                <p>Samples with <strong>large gradients</strong> are under-fitted and more important for learning.</p>
+                <h3>Algorithm</h3>
+                <ol style="margin-left:40px">
+                    <li style="margin:10px 0">Rank samples by |gradient|</li>
+                    <li style="margin:10px 0">Keep top <code>a%</code> (default 20%) - large gradients</li>
+                    <li style="margin:10px 0">Random sample <code>b%</code> (default 10%) from rest</li>
+                    <li style="margin:10px 0">Weight sampled small gradients by <code>(1-a)/b</code></li>
+                </ol>
+                <div class="formula">
+                    weight = (1 - 0.2) / 0.1 = <strong>8x</strong>
+                </div>
+            </div>
+            <div>
+                <!-- Visual: GOSS sampling illustration with gradient colors -->
+                <div class="visual-box">
+                    <p style="color:#888;margin-bottom:15px">Sample Distribution by Gradient</p>
+                    <div style="font-family:monospace;line-height:1.8">
+                        <div>|gradient|  High ◄────────────────► Low</div>
+                        <div style="margin:5px 0">
+                            <span style="color:#ef5350">████</span><span style="color:#ff7043">████</span><span style="color:#ffa726">████</span><span style="color:#ffca28">████</span><span style="color:#d4e157">████</span><span style="color:#9ccc65">████</span><span style="color:#66bb6a">████</span>
+                        </div>
+                        <div style="margin-top:15px;color:#888">Step 1: Keep top 20% (large gradients)</div>
+                        <div style="margin:5px 0">
+                            <span style="color:#ef5350">████</span><span style="color:#ff7043">██</span><span style="color:#666"> │ </span><span style="color:#444">........................</span>
+                        </div>
+                        <div><span style="color:#81c784">keep</span><span style="color:#666">   │  rest 80%</span></div>
+                        <div style="margin-top:15px;color:#888">Step 2: Random 10% from rest</div>
+                        <div style="margin:5px 0">
+                            <span style="color:#ef5350">████</span><span style="color:#ff7043">██</span><span style="color:#666"> │ </span><span style="color:#9ccc65">██</span>
+                        </div>
+                        <div><span style="color:#81c784">keep</span><span style="color:#666">   │ </span><span style="color:#4fc3f7">sample (weight=8x)</span></div>
+                        <div style="margin-top:15px;color:#81c784">Final: ~28% data, preserves gradient info</div>
+                    </div>
+                </div>
+                <div class="metric" style="margin-top:10px">
+                    <div class="value">72%</div>
+                    <div class="label">Data reduction</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 12: EFB - Exclusive Feature Bundling
+         Dedicated slide for EFB with visual example
+         ============================================================ -->
+    <div class="slide" id="efb">
+        <h2>EFB: Exclusive Feature Bundling</h2>
+        <div class="two-column">
+            <div>
+                <h3>Key Insight</h3>
+                <p>In sparse data (e.g., one-hot encoded), many features are <strong>mutually exclusive</strong> - never non-zero together.</p>
+                <h3>Algorithm</h3>
+                <ol style="margin-left:40px">
+                    <li style="margin:10px 0">Build conflict graph (features that overlap)</li>
+                    <li style="margin:10px 0">Find bundles using graph coloring</li>
+                    <li style="margin:10px 0">Merge exclusive features into one</li>
+                </ol>
+                <h3>When It Helps</h3>
+                <ul>
+                    <li>One-hot encoded categories</li>
+                    <li>Sparse text features</li>
+                    <li>High-dimensional sparse data</li>
+                </ul>
+
+                <h3 style="color:#ef5350">EFB ≈≈ No one-hot</span>
+            </div>
+            <div>
+                <!-- Visual: EFB example -->
+                <div class="visual-box">
+                    <p style="color:#888;margin-bottom:15px">One-Hot Encoded Features</p>
+                    <pre style="color:#ccc">
+       color_red  color_blue  color_green
+row 1:    1           0           0
+row 2:    0           1           0
+row 3:    0           0           1
+row 4:    1           0           0
+                    </pre>
+                    <p style="color:#4fc3f7;margin:15px 0">↓ Bundle into single feature</p>
+                    <pre style="color:#81c784">
+       color_bundle
+row 1:     1  (red)
+row 2:     2  (blue)
+row 3:     3  (green)
+row 4:     1  (red)
+                    </pre>
+                </div>
+                <div class="metric" style="margin-top:10px">
+                    <div class="value">3→1</div>
+                    <div class="label">Features reduced</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 13: GBM Market Landscape
+         Overview of major frameworks with years
+         ============================================================ -->
+    <div class="slide" id="market">
+        <h2>GBM Market Landscape</h2>
+        <div class="two-column">
+            <div>
+                <h3>Major Frameworks</h3>
+                <table class="comparison-table">
+                    <tr>
+                        <td><strong>sklearn GBM</strong></td>
+                        <td><span class="year">2007</span> Reference implementation</td>
+                    </tr>
+                    <tr>
+                        <td><strong>XGBoost</strong></td>
+                        <td><span class="year">2014</span> Tianqi Chen, most popular</td>
+                    </tr>
+                    <tr>
+                        <td><strong>LightGBM</strong></td>
+                        <td><span class="year">2016</span> Microsoft, fastest</td>
+                    </tr>
+                    <tr>
+                        <td><strong>CatBoost</strong></td>
+                        <td><span class="year">2017</span> Yandex, best for categorical</td>
+                    </tr>
+                    <tr>
+                        <td><strong>sklearn HistGBM</strong></td>
+                        <td><span class="year">2019</span> Histogram-based like LightGBM</td>
+                    </tr>
+                </table>
+            </div>
+            <div>
+                <h3>Kaggle Usage (2023)</h3>
+                <div class="visual-box">
+                    <div class="bar-label"><span>LightGBM</span><span>45%</span></div>
+                    <div class="bar" style="width:90%;background:#81c784"></div>
+                    <div class="bar-label"><span>XGBoost</span><span>35%</span></div>
+                    <div class="bar" style="width:70%;background:#4fc3f7"></div>
+                    <div class="bar-label"><span>CatBoost</span><span>15%</span></div>
+                    <div class="bar" style="width:30%;background:#ba68c8"></div>
+                    <div class="bar-label"><span>Others</span><span>5%</span></div>
+                    <div class="bar" style="width:10%;background:#888"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 14: Why LightGBM?
+         Benefits and use cases
+         ============================================================ -->
+    <div class="slide" id="why-lightgbm">
+        <h2>Why LightGBM?</h2>
+        <ul>
+            <li><strong>Speed:</strong> 10-20x faster than XGBoost on large datasets</li>
+            <li><strong>Memory:</strong> Lower memory footprint with histogram binning</li>
+            <li><strong>Accuracy:</strong> Leaf-wise growth often achieves better loss</li>
+            <li><strong>Scalability:</strong> Handles 100M+ rows efficiently</li>
+            <li><strong>GPU support:</strong> Native CUDA acceleration</li>
+            <li><strong>Categorical features:</strong> Native support (no one-hot needed)</li>
+            <li><strong>Production ready:</strong> Used by Microsoft, Alibaba, Tencent</li>
+        </ul>
+        <div style="margin-top:30px">
+            <div class="metric">
+                <div class="value">20x</div>
+                <div class="label">Faster training</div>
+            </div>
+            <div class="metric">
+                <div class="value">5x</div>
+                <div class="label">Less memory</div>
+            </div>
+            <div class="metric">
+                <div class="value">#1</div>
+                <div class="label">Kaggle choice</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 15: LightGBM vs XGBoost
+         Direct comparison table
+         ============================================================ -->
+    <div class="slide" id="comparison">
+        <h2>LightGBM vs XGBoost</h2>
+        <table class="comparison-table">
+            <tr>
+                <th>Aspect</th>
+                <th>XGBoost <span class="year">(2014)</span></th>
+                <th>LightGBM <span class="year">(2017)</span></th>
+            </tr>
+            <tr>
+                <td>Split finding</td>
+                <td>Pre-sorted / Histogram</td>
+                <td>Histogram only (built once)</td>
+            </tr>
+            <tr>
+                <td>Tree growth</td>
+                <td>Level-wise</td>
+                <td>Leaf-wise</td>
+            </tr>
+            <tr>
+                <td>Sampling</td>
+                <td>Row/column subsampling</td>
+                <td>GOSS + EFB</td>
+            </tr>
+            <tr>
+                <td>Categorical</td>
+                <td>Needs encoding</td>
+                <td>Native support</td>
+            </tr>
+            <tr>
+                <td>Speed (1M rows)</td>
+                <td style="color:#ef5350">~60 seconds</td>
+                <td style="color:#81c784">~5 seconds</td>
+            </tr>
+            <tr>
+                <td>Memory (1M rows)</td>
+                <td style="color:#ef5350">~8 GB</td>
+                <td style="color:#81c784">~2 GB</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 16: Real-world Adoption
+         Industry use cases and Kaggle competitions
+         ============================================================ -->
+    <div class="slide" id="adoption">
+        <h2>Real-world Adoption</h2>
+        <div class="two-column">
+            <div>
+                <h3>Industry Use Cases</h3>
+                <ul>
+                    <li><strong>Microsoft:</strong> Bing ranking, Azure ML</li>
+                    <li><strong>Alibaba:</strong> Recommendation systems</li>
+                    <li><strong>Tencent:</strong> Ad click prediction</li>
+                    <li><strong>Finance:</strong> Credit scoring, fraud detection</li>
+                    <li><strong>E-commerce:</strong> Demand forecasting</li>
+                </ul>
+            </div>
+            <div>
+                <h3>Kaggle Competitions</h3>
+                <ul>
+                    <li>Porto Seguro Safe Driver (1st place)</li>
+                    <li>Home Credit Default Risk</li>
+                    <li>Elo Merchant Category</li>
+                    <li>IEEE Fraud Detection</li>
+                    <li>Most tabular data competitions</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 17: MinGBM Overview
+         Introduction to our minimal implementation
+         ============================================================ -->
+    <div class="slide center" id="mingbm">
+        <h1 style="color:#4fc3f7">MinGBM</h1>
+        <p class="subtitle">A Minimal LightGBM Implementation in C</p>
+        <div style="margin-top:40px">
+            <div class="metric">
+                <div class="value">~600</div>
+                <div class="label">Lines of code</div>
+            </div>
+            <div class="metric">
+                <div class="value">Pure C</div>
+                <div class="label">No dependencies</div>
+            </div>
+            <div class="metric">
+                <div class="value">Single-threaded</div>
+                <div class="label">Easy to understand</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 18: MinGBM Architecture
+         File structure and data flow
+         ============================================================ -->
+    <div class="slide" id="architecture">
+        <h2>MinGBM Architecture</h2>
+        <div class="diagram">
+            <pre>
+ CSV File
+    │
+    ▼
+┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│    dataset.c     │ ──► │     train.c      │ ──► │     model.c      │
+│  Parse & mmap    │     │ Histogram + GOSS │     │   Tree storage   │
+└────────┬─────────┘     └────────┬─────────┘     └────────┬─────────┘
+         │                        │                        │
+         ▼                        ▼                        ▼
+    dataset.bin              binned.bin                model.bin
+   (float columns)          (uint8 bins)            (tree nodes)
+            </pre>
+        </div>
+        <div style="margin-top:20px">
+            <span class="tag">header.h</span> Data structures
+            <span class="tag">dataset.c</span> CSV + mmap
+            <span class="tag">train.c</span> GBM training
+            <span class="tag">model.c</span> Tree ops
+            <span class="tag">utility.c</span> Helpers
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 19: Memory-Mapped Storage (mmap)
+         What is mmap and how it works
+         ============================================================ -->
+    <div class="slide" id="mmap">
+        <h2>Memory-Mapped Storage (mmap)</h2>
+        <div class="two-column">
+            <div>
+                <h3>What is mmap?</h3>
+                <p>Map file directly into virtual memory address space.</p>
+                <h3>How it works</h3>
+                <ul>
+                    <li>OS handles paging automatically</li>
+                    <li>No explicit read/write calls</li>
+                    <li>Access file like array in memory</li>
+                    <li>Changes sync back to file</li>
+                </ul>
+            </div>
+            <div>
+                <pre><code>
+<span class="type">int</span> fd = <span class="function">open</span>(filename, O_RDWR | O_CREAT);
+<span class="function">ftruncate</span>(fd, size);
+
+<span class="type">void</span> *ptr = <span class="function">mmap</span>(
+    <span class="number">NULL</span>,           <span class="comment">// let OS choose addr</span>
+    size,           <span class="comment">// file size</span>
+    PROT_READ | PROT_WRITE,
+    MAP_SHARED,     <span class="comment">// share changes</span>
+    fd, <span class="number">0</span>
+);
+
+<span class="comment">// Access like array</span>
+<span class="type">float</span> *data = (<span class="type">float</span>*)ptr;
+data[<span class="number">0</span>] = <span class="number">3.14</span>;  <span class="comment">// directly!</span></code></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 20: Why mmap?
+         Benefits and comparison with traditional I/O
+         ============================================================ -->
+    <div class="slide" id="why-mmap">
+        <h2>Why mmap?</h2>
+        <div class="two-column">
+            <div>
+                <h3>Benefits</h3>
+                <ul>
+                    <li><strong>Zero-copy:</strong> No buffer copying needed</li>
+                    <li><strong>Lazy loading:</strong> Only load pages on access</li>
+                    <li><strong>OS-managed:</strong> Smart caching & eviction</li>
+                    <li><strong>Persistence:</strong> Data survives crashes</li>
+                    <li><strong>Simple code:</strong> Just pointer arithmetic</li>
+                </ul>
+                <h3>Use in MinGBM</h3>
+                <ul>
+                    <li>dataset.bin - feature columns</li>
+                    <li>binned.bin - bin indices</li>
+                    <li>model.bin - tree structure</li>
+                </ul>
+            </div>
+            <div>
+                <!-- Visual: Traditional vs mmap -->
+                <div class="visual-box">
+                    <p style="color:#ef5350">Traditional I/O</p>
+                    <pre style="background:none;border:none;padding:5px"><code><span class="type">float</span> *buf = <span class="function">malloc</span>(size);
+<span class="function">fread</span>(buf, size, 1, file);  <span class="comment">// copy!</span>
+<span class="comment">// process...</span>
+<span class="function">fwrite</span>(buf, size, 1, file); <span class="comment">// copy!</span>
+<span class="function">free</span>(buf);</code></pre>
+                </div>
+                <div class="visual-box" style="margin-top:15px">
+                    <p style="color:#81c784">With mmap</p>
+                    <pre style="background:none;border:none;padding:5px"><code><span class="type">float</span> *data = <span class="function">mmap</span>(...);
+data[i] = value;  <span class="comment">// direct access!</span>
+<span class="function">munmap</span>(data, size);</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 21: Column-Major Layout
+         Why column-major is better for histogram building
+         ============================================================ -->
+    <div class="slide" id="column-major">
+        <h2>Column-Major Layout</h2>
+        <div class="two-column">
+            <div>
+                <h3>Row-Major (typical)</h3>
+                <pre><code>row0: [f0, f1, f2, f3]
+row1: [f0, f1, f2, f3]
+row2: [f0, f1, f2, f3]</code></pre>
+                <p style="color:#ef5350">✗ One feature scatters across memory</p>
+
+                <h3>Column-Major (MinGBM)</h3>
+                <pre><code>col0: [r0, r1, r2, ...]
+col1: [r0, r1, r2, ...]
+col2: [r0, r1, r2, ...]</code></pre>
+                <p style="color:#81c784">✓ Sequential memory access</p>
+            </div>
+            <div>
+                <h3>Why Column-Major?</h3>
+                <ul>
+                    <li>Histogram building scans one feature at a time</li>
+                    <li>Sequential access = CPU prefetch works</li>
+                    <li>Cache lines fully utilized</li>
+                    <li>10x+ faster than random access</li>
+                </ul>
+                <!-- Visual: Cache line usage -->
+                <div class="visual-box" style="margin-top:20px">
+                    <p style="color:#888;font-size:0.9em">Cache Line (64 bytes)</p>
+                    <pre style="color:#81c784;background:none;border:none">
+Column-major: [████████████████] ← all useful
+                ↑ one feature
+
+Row-major:    [█...█...█...█...] ← mostly wasted
+               ↑ scattered values
+                    </pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 22: Bin Mapping - Concept
+         How continuous values are discretized into bins
+         ============================================================ -->
+    <div class="slide" id="bin-mapping">
+        <h2>Bin Mapping - Concept</h2>
+        <div class="two-column">
+            <div>
+                <h3>Problem</h3>
+                <p>Continuous values require sorting for split finding.</p>
+                <h3>Solution</h3>
+                <p>Discretize into bins (buckets) <strong>ONCE</strong>, reuse forever.</p>
+                <h3>Process</h3>
+                <ol style="margin-left:40px">
+                    <li style="margin:10px 0">Analyze feature distribution</li>
+                    <li style="margin:10px 0">Create bin boundaries (quantiles)</li>
+                    <li style="margin:10px 0">Map each value to bin index</li>
+                    <li style="margin:10px 0">Store as uint8 (0-255)</li>
+                </ol>
+            </div>
+            <div>
+                <!-- Visual: Binning process -->
+                <div class="visual-box">
+                    <p style="color:#888;margin-bottom:5px">Original float values</p>
+                    <pre style="background:none;border:none; margin: 0;"><code>[<span class="number">23500, 185000, 95000, 220000</span>]</code></pre>
+                    <p style="color:#4fc3f7;margin:5px 0">↓ Quantile boundaries</p>
+                    <pre style="background:none;border:none; margin: 0;"><code>[<span class="number">50K, 100K, 150K, 200K, 250K</span>]</code></pre>
+                    <p style="color:#81c784;margin:5px 0">↓ Map to bins (uint8)</p>
+                    <pre style="background:none;border:none; margin: 0;"><code>[<span class="number">0,    3,     1,     4</span>]</code></pre>
+                </div>
+                <div class="metric" style="margin-top:10px">
+                    <div class="value">4→1</div>
+                    <div class="label">Bytes per value</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 23: Bin Mapping - Adaptive Encoding
+         Different encoding types based on cardinality
+         ============================================================ -->
+    <div class="slide" id="adaptive-encoding">
+        <h2>Bin Mapping - Adaptive Encoding</h2>
+        <div class="two-column">
+            <div>
+                <h3>Not All Features Are Equal</h3>
+                <p>Categorical features have low cardinality.</p>
+                <h3>Encoding Types</h3>
+                <table class="comparison-table">
+                    <tr>
+                        <td><strong>DIRECT</strong></td>
+                        <td>cardinality < 256</td>
+                        <td>8-bit</td>
+                    </tr>
+                    <tr>
+                        <td><strong>BITS_4</strong></td>
+                        <td>cardinality ≤ 16</td>
+                        <td>4-bit</td>
+                    </tr>
+                    <tr>
+                        <td><strong>BITS_2</strong></td>
+                        <td>cardinality ≤ 4</td>
+                        <td>2-bit</td>
+                    </tr>
+                    <tr>
+                        <td><strong>BINNED</strong></td>
+                        <td>cardinality ≥ 256</td>
+                        <td>Quantile bins</td>
+                    </tr>
+                </table>
+            </div>
+            <div>
+                <pre><code><span class="type">uint8_t</span> <span class="function">determine_encoding_type</span>(
+    <span class="type">uint32_t</span> cardinality
+) {
+    <span class="keyword">if</span> (cardinality <= <span class="number">4</span>) {
+        <span class="keyword">return</span> ENCODING_BITS_2;
+    } <span class="keyword">else if</span> (cardinality <= <span class="number">16</span>) {
+        <span class="keyword">return</span> ENCODING_BITS_4;
+    } <span class="keyword">else if</span> (cardinality < <span class="number">256</span>) {
+        <span class="keyword">return</span> ENCODING_DIRECT;
+    } <span class="keyword">else</span> {
+        <span class="keyword">return</span> ENCODING_BINNED;
+    }
+}</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 24: Histogram Building
+         How histograms are built from binned data
+         ============================================================ -->
+    <div class="slide" id="histogram-building">
+        <h2>Histogram Building</h2>
+        <div class="two-column">
+            <div>
+                <h3>Goal</h3>
+                <p>Aggregate gradients and hessians per bin.</p>
+                <h3>Data Structure</h3>
+                <pre><code style="font-size: 0.95em;"><span class="keyword">typedef struct</span> {
+    <span class="type">double</span> sum_gradients[<span class="number">256</span>];
+    <span class="type">double</span> sum_hessians[<span class="number">256</span>];
+    <span class="type">uint32_t</span> counts[<span class="number">256</span>];
+} Histogram;</code></pre>
+                <h3>Complexity</h3>
+                <p>O(n) - single pass through samples</p>
+            </div>
+            <div>
+                <pre><code style="font-size: 0.95em;"><span class="type">void</span> <span class="function">build_histogram</span>(...) {
+    <span class="type">uint8_t</span> *bin_col =
+        binned->bin_columns[feature_idx];
+
+    <span class="keyword">for</span> (<span class="type">uint32_t</span> i = <span class="number">0</span>; i < n_samples; i++) {
+        <span class="type">uint32_t</span> idx = samples[i];
+        <span class="type">uint8_t</span> bin = bin_col[idx];
+
+        <span class="comment">// Aggregate into histogram</span>
+        hist->sum_gradients[bin] += ctx->gradients[idx];
+        hist->sum_hessians[bin]  += ctx->hessians[idx];
+        hist->counts[bin]++;
+    }
+}</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 25: Finding Best Split
+         Split gain formula and scanning algorithm
+         ============================================================ -->
+    <div class="slide" id="best-split">
+        <h2>Finding Best Split</h2>
+        <div class="two-column">
+            <div>
+                <h3>Split Gain Formula</h3>
+                <div class="formula">
+                    gain = ½ × (G²ₗ/Hₗ + G²ᵣ/Hᵣ - G²/H)
+                </div>
+                <p style="font-size:0.9em;color:#888">Where G = gradient sum, H = hessian sum</p>
+                <h3>Process</h3>
+                <ol style="margin-left:40px">
+                    <li style="margin:10px 0">Scan bins left to right</li>
+                    <li style="margin:10px 0">Accumulate left gradient/hessian</li>
+                    <li style="margin:10px 0">Right = Total - Left</li>
+                    <li style="margin:10px 0">Compute gain, track best</li>
+                </ol>
+            </div>
+            <div>
+                <pre><code style="font-size: 0.9em;"><span class="type">double</span> left_grad = <span class="number">0</span>, left_hess = <span class="number">0</span>;
+
+<span class="keyword">for</span> (<span class="type">uint32_t</span> b = <span class="number">0</span>; b < n_bins-<span class="number">1</span>; b++) {
+    left_grad += hist->sum_gradients[b];
+    left_hess += hist->sum_hessians[b];
+
+    <span class="type">double</span> right_grad = total - left_grad;
+    <span class="type">double</span> right_hess = total - left_hess;
+
+    <span class="type">double</span> gain = <span class="number">0.5</span> * (
+        left_grad*left_grad / left_hess +
+        right_grad*right_grad / right_hess -
+        total_grad*total_grad / total_hess
+    );
+
+    <span class="keyword">if</span> (gain > best_split->gain) {
+        best_split->gain = gain;
+        best_split->bin_idx = b;
+    }
+}</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 26: QuickSelect Algorithm
+         O(n) top-k selection for GOSS
+         ============================================================ -->
+    <div class="slide" id="quickselect">
+        <h2>QuickSelect Algorithm</h2>
+        <div class="two-column">
+            <div>
+                <h3>Problem</h3>
+                <p>GOSS needs top-k samples by gradient magnitude.</p>
+                <h3>Naive: Full Sort</h3>
+                <p style="color:#ef5350">O(n log n) - too slow!</p>
+                <h3>QuickSelect</h3>
+                <p style="color:#81c784">O(n) average - partition-based selection.</p>
+                <h3>How it works</h3>
+                <ul>
+                    <li>Like QuickSort, but only recurse one side</li>
+                    <li>Partition around pivot</li>
+                    <li>If pivot at k, done!</li>
+                    <li>Else recurse into correct half</li>
+                </ul>
+            </div>
+            <div>
+                <pre><code style="font-size: 0.8em;"><span class="type">void</span> <span class="function">quickselect</span>(
+    <span class="type">uint32_t</span> *indices,
+    <span class="type">uint32_t</span> left, <span class="type">uint32_t</span> right,
+    <span class="type">uint32_t</span> k
+) {
+    <span class="keyword">if</span> (left >= right) <span class="keyword">return</span>;
+
+    <span class="type">uint32_t</span> pivot = <span class="function">partition</span>(
+        indices, left, right
+    );
+
+    <span class="keyword">if</span> (pivot == k) {
+        <span class="keyword">return</span>;  <span class="comment">// Found!</span>
+    } <span class="keyword">else if</span> (pivot > k) {
+        <span class="comment">// Recurse left only</span>
+        <span class="function">quickselect</span>(indices,
+            left, pivot - <span class="number">1</span>, k);
+    } <span class="keyword">else</span> {
+        <span class="comment">// Recurse right only</span>
+        <span class="function">quickselect</span>(indices,
+            pivot + <span class="number">1</span>, right, k);
+    }
+}</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 27: GOSS Code Walkthrough
+         Implementation details of GOSS sampling
+         ============================================================ -->
+    <div class="slide" id="goss-code">
+        <h2>GOSS - Code Walkthrough</h2>
+        <pre><code style="font-size: 0.85em;"><span class="type">uint32_t</span> <span class="function">goss_sample_selection</span>(TrainContext *ctx, <span class="type">uint32_t</span> *samples, <span class="type">uint32_t</span> n_samples) {
+    <span class="keyword">if</span> (!ctx->use_goss || n_samples < <span class="number">100</span>) {
+        <span class="keyword">for</span> (<span class="type">uint32_t</span> i = <span class="number">0</span>; i < n_samples; i++)
+            ctx->sample_weights[samples[i]] = <span class="number">1.0f</span>;
+        <span class="keyword">return</span> n_samples;
+    }
+
+    <span class="type">uint32_t</span> n_large = (<span class="type">uint32_t</span>)(ctx->goss_alpha * n_samples);  <span class="comment">// top 20%</span>
+
+    <span class="function">quickselect</span>(ctx, ctx->sorted_indices, <span class="number">0</span>, n_samples - <span class="number">1</span>, n_large - <span class="number">1</span>);
+
+    <span class="type">uint32_t</span> n_small_total = n_samples - n_large;
+    <span class="type">uint32_t</span> n_small_sample = (<span class="type">uint32_t</span>)(ctx->goss_beta * n_small_total);  <span class="comment">// 10% of rest</span>
+
+    <span class="keyword">for</span> (<span class="type">uint32_t</span> i = <span class="number">0</span>; i < n_large; i++) {
+        samples[selected++] = ctx->sorted_indices[i];
+        ctx->sample_weights[samples[selected]] = <span class="number">1.0f</span>;
+    }
+
+    <span class="type">float</span> small_weight = n_small_total / (<span class="type">float</span>)n_small_sample;    
+    <span class="keyword">return</span> selected;  <span class="comment">// ~28% of original</span>
+}</code></pre>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 28: Leaf-wise Tree Growth
+         Max-heap based leaf selection algorithm
+         ============================================================ -->
+    <div class="slide" id="tree-growth">
+        <h2>Leaf-wise Tree Growth</h2>
+        <div class="two-column">
+            <div>
+                <h3>Algorithm</h3>
+                <ol style="margin-left:40px">
+                    <li style="margin:10px 0">Start with root node (all samples)</li>
+                    <li style="margin:10px 0">Find best split for root</li>
+                    <li style="margin:10px 0">Add to <strong>max-heap</strong> by gain</li>
+                    <li style="margin:10px 0">Pop best leaf, split it</li>
+                    <li style="margin:10px 0">Add children to heap</li>
+                    <li style="margin:10px 0">Repeat until max_leaves</li>
+                </ol>
+                <h3>Key: Max Heap</h3>
+                <p>Always split highest-gain leaf first.</p>
+            </div>
+            <div>
+                <pre><code style="font-size: 0.9em;"><span class="keyword">while</span> (heap_size > <span class="number">0</span> &&
+       num_leaves < max_leaves) {
+
+    <span class="comment">// Get leaf with highest gain</span>
+    LeafCandidate best = <span class="function">heap_pop</span>(&heap);
+
+    <span class="comment">// Partition samples by split</span>
+    n_left = <span class="function">partition_samples</span>(
+        best.samples,
+        best.split.feature_idx,
+        best.split.bin_idx
+    );
+
+    <span class="comment">// Create child nodes</span>
+    left_child = <span class="function">add_tree_node</span>(LEAF);
+    right_child = <span class="function">add_tree_node</span>(LEAF);
+
+    <span class="comment">// Find splits for children</span>
+    <span class="comment">// Add to heap if gain > 0</span>
+    ...
+
+    num_leaves++;
+}</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 29: Performance Comparison
+         MinGBM vs LightGBM benchmark results
+         ============================================================ -->
+    <div class="slide" id="performance">
+        <h2>Performance Comparison</h2>
+        <h3>House Prices Dataset (1460 samples, 79 features, 50 trees)</h3>
+        <div class="two-column">
+            <div>
+                <table class="comparison-table">
+                    <tr>
+                        <th>Metric</th>
+                        <th>MinGBM</th>
+                        <th>LightGBM</th>
+                    </tr>
+                    <tr>
+                        <td>Training Time</td>
+                        <td>0.06s</td>
+                        <td style="color:#81c784">0.02s</td>
+                    </tr>
+                    <tr>
+                        <td>Final RMSE</td>
+                        <td>18,129</td>
+                        <td style="color:#81c784">17,179</td>
+                    </tr>
+                    <tr>
+                        <td>Final MAE</td>
+                        <td>14,841</td>
+                        <td style="color:#81c784">10,030</td>
+                    </tr>
+                    <tr>
+                        <td>Code Size</td>
+                        <td style="color:#81c784">~600 LOC</td>
+                        <td>~100K LOC</td>
+                    </tr>
+                </table>
+            </div>
+            <div>
+                <h3>Key Takeaways</h3>
+                <ul>
+                    <li>MinGBM achieves comparable accuracy</li>
+                    <li>LightGBM is 1.5x faster</li>
+                    <li><strong>MinGBM:</strong> educational, transparent</li>
+                    <li><strong>LightGBM:</strong> production, optimized</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 30: Key Takeaways
+         Summary of main concepts
+         ============================================================ -->
+    <div class="slide" id="takeaways">
+        <h2>Key Takeaways</h2>
+        <div class="two-column">
+            <div>
+                <h3>LightGBM Innovations</h3>
+                <ul>
+                    <li><strong>Histogram-based:</strong> O(n) not O(n log n), built once</li>
+                    <li><strong>Leaf-wise:</strong> Better accuracy, faster convergence</li>
+                    <li><strong>GOSS:</strong> Smart sampling, 72% data reduction</li>
+                    <li><strong>EFB:</strong> Feature bundling for sparse data</li>
+                </ul>
+            </div>
+            <div>
+                <h3>Implementation Tricks</h3>
+                <ul>
+                    <li><strong>mmap:</strong> Zero-copy I/O</li>
+                    <li><strong>Column-major:</strong> Cache efficiency</li>
+                    <li><strong>Adaptive bins:</strong> Memory savings</li>
+                    <li><strong>QuickSelect:</strong> O(n) top-k</li>
+                </ul>
+            </div>
+        </div>
+        <div style="margin-top:40px;text-align:center">
+            <p style="font-size:1.3em;color:#4fc3f7">
+                "The best way to understand an algorithm is to implement it."
+            </p>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 31: Thanks & Q&A
+         Closing slide with contact information
+         ============================================================ -->
+
+    <div class="slide center" id="lightgbmviz">
+        <iframe src="https://awheelmaker.com/page/lgbmviz/index.html" style="width: 100%; height: 100%;"></iframe>
+    </div>
+    <div class="slide center" id="thanks">
+        <h1>Thanks!</h1>
+        <p class="subtitle" style="margin-bottom:40px">Questions?</p>
+        <div>
+            <p style="margin:15px 0"><a href="https://objectexplorer.com">objectexplorer.com</a></p>
+            <p style="margin:15px 0"><a href="https://awheelmaker.com">awheelmaker.com</a></p>
+        </div>
+        <div style="margin-top:60px">
+            <span class="tag"><a href="https://www.linkedin.com/in/rockieyang/" style="display:inline-flex;align-items:center;gap:8px"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>Rockie Yang</a></span>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         NAVIGATION ELEMENTS
+         Progress bar, slide number, navigation hint
+         ============================================================ -->
+    <div class="progress" id="progress"></div>
+    <div class="slide-number" id="slideNumber"></div>
+    <div class="nav-hint">← → Arrow keys to navigate</div>
+
+    <!-- ============================================================
+         JAVASCRIPT: Slide Navigation
+         Handles keyboard, touch navigation and progress tracking
+         ============================================================ -->
+    <script>
+        const slides = document.querySelectorAll('.slide');
+        let currentSlide = 0;
+
+        function showSlide(n, updateHash = true) {
+            // Remove active class from current slide
+            slides[currentSlide].classList.remove('active');
+            // Calculate new slide index (wrap around)
+            currentSlide = (n + slides.length) % slides.length;
+            // Add active class to new slide
+            slides[currentSlide].classList.add('active');
+
+            // Update URL hash without triggering hashchange
+            if (updateHash && slides[currentSlide].id) {
+                history.replaceState(null, null, '#' + slides[currentSlide].id);
+                // Notify parent frame of hash change
+                if (window.parent !== window) {
+                    window.parent.postMessage({ type: 'hashchange', hash: '#' + slides[currentSlide].id }, '*');
+                }
+            }
+
+            // Update progress bar
+            const progress = ((currentSlide + 1) / slides.length) * 100;
+            document.getElementById('progress').style.width = progress + '%';
+            // Update slide number display
+            document.getElementById('slideNumber').textContent =
+                (currentSlide + 1) + ' / ' + slides.length;
+        }
+
+        // Navigate to slide by hash/id
+        function goToSlideByHash() {
+            const hash = window.location.hash.slice(1);
+            if (hash) {
+                for (let i = 0; i < slides.length; i++) {
+                    if (slides[i].id === hash) {
+                        showSlide(i, false);
+                        return;
+                    }
+                }
+            }
+            showSlide(0, false);
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                showSlide(currentSlide + 1);
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                showSlide(currentSlide - 1);
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                showSlide(0);
+            } else if (e.key === 'End') {
+                e.preventDefault();
+                showSlide(slides.length - 1);
+            }
+        });
+
+        // Touch/swipe support for mobile
+        let touchStartX = 0;
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        });
+        document.addEventListener('touchend', (e) => {
+            const touchEndX = e.changedTouches[0].clientX;
+            const diff = touchStartX - touchEndX;
+            if (Math.abs(diff) > 50) {
+                if (diff > 0) showSlide(currentSlide + 1);  // Swipe left = next
+                else showSlide(currentSlide - 1);           // Swipe right = prev
+            }
+        });
+
+        // Handle browser back/forward with hash
+        window.addEventListener('hashchange', goToSlideByHash);
+
+        // WebSocket sync for presenter mode
+        const isFollower = window.location.search.includes('follow');
+        let ws = null;
+
+        const connectWS = () => {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+            ws.onopen = () => console.log('WS connected');
+            ws.onclose = () => setTimeout(connectWS, 1000);
+            ws.onmessage = (e) => {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'slide' && isFollower) {
+                    // Follower shows next slide (one ahead as preview)
+                    showSlide(msg.index + 1, true);
+                }
+            };
+        };
+
+        // Connect to WS if available (server mode)
+        if (window.location.port) {
+            connectWS();
+        }
+
+        // Wrap showSlide to broadcast changes
+        const originalShowSlide = showSlide;
+        showSlide = (n, updateHash = true) => {
+            originalShowSlide(n, updateHash);
+            if (ws && ws.readyState === 1 && !isFollower) {
+                ws.send(JSON.stringify({ type: 'slide', index: currentSlide }));
+            }
+        };
+
+        // Initialize from hash or first slide
+        goToSlideByHash();
+    </script>
+</body>
+</html>
