@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug MinGBM",
+            "type": "lldb-dap",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/mingbm_debug",
+            "args": [
+                "${workspaceFolder}/house-prices-advanced-regression-techniques/train.csv",
+                "10",
+                "0.1"
+            ],
+            "cwd": "${workspaceFolder}/tmp",
+            "preLaunchTask": "Build Debug",
+            "stopOnEntry": false
+        }
+    ]
+}
